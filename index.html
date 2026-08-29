@@ -707,6 +707,17 @@ function taskSummary(){
              calendarToday.filter(t=>t.done).length;
   return {total,done};
 }
+function refreshTaskViews(){
+  // تحديث واجهة المهام الحالية فورًا بدون مغادرة القسم أو إعادة فتح الموقع.
+  const sectionView=document.getElementById('sectionView');
+  const content=document.getElementById('sectionViewContent');
+  if(sectionView && !sectionView.hidden && content && document.getElementById('sectionViewTitle')?.textContent === sectionTitle('tasks')){
+    content.innerHTML = sectionIntro('tasks') + cardTasks();
+    bindEvents();
+  }
+  // تحديث الصفحة الرئيسية ومستطيل تذكير المهام فورًا.
+  render();
+}
 function updateTaskReminder(){
   const el=document.getElementById('todayTaskReminder');
   if(!el) return;
@@ -1117,32 +1128,32 @@ function bindEvents(){
   document.querySelectorAll('[data-tmpl-task]').forEach(el=>{
     el.onchange = ()=>{
       state.tasksDaily.doneIds[el.dataset.tmplTask] = el.checked;
-      saveJSON('tasksDaily:'+dateKey, state.tasksDaily); render();
+      saveJSON('tasksDaily:'+dateKey, state.tasksDaily); refreshTaskViews();
     };
   });
   document.querySelectorAll('[data-tmpl-remove]').forEach(el=>{
     el.onclick = ()=>{
       state.taskTemplate = state.taskTemplate.filter(t=>t.id!==el.dataset.tmplRemove);
-      saveJSON('taskTemplate', state.taskTemplate); render();
+      saveJSON('taskTemplate', state.taskTemplate); refreshTaskViews();
     };
   });
   document.querySelectorAll('[data-extra-task]').forEach(el=>{
     el.onchange = ()=>{
       const t = state.tasksDaily.extra.find(x=>x.id===el.dataset.extraTask);
-      if(t){ t.done = el.checked; saveJSON('tasksDaily:'+dateKey, state.tasksDaily); render(); }
+      if(t){ t.done = el.checked; saveJSON('tasksDaily:'+dateKey, state.tasksDaily); refreshTaskViews(); }
     };
   });
   document.querySelectorAll('[data-extra-remove]').forEach(el=>{
     el.onclick = ()=>{
       state.tasksDaily.extra = state.tasksDaily.extra.filter(t=>t.id!==el.dataset.extraRemove);
-      saveJSON('tasksDaily:'+dateKey, state.tasksDaily); render();
+      saveJSON('tasksDaily:'+dateKey, state.tasksDaily); refreshTaskViews();
     };
   });
   document.querySelectorAll('[data-calendar-task]').forEach(el=>{
-    el.onchange=()=>{const arr=state.calendarTasks||[],x=arr.find(t=>t.id===el.dataset.calendarTask);if(x){x.done=el.checked;saveJSON('calendarTasks',arr);render();}};
+    el.onchange=()=>{const arr=state.calendarTasks||[],x=arr.find(t=>t.id===el.dataset.calendarTask);if(x){x.done=el.checked;saveJSON('calendarTasks',arr);refreshTaskViews();}};
   });
   document.querySelectorAll('[data-calendar-task-remove]').forEach(el=>{
-    el.onclick=()=>{state.calendarTasks=(state.calendarTasks||[]).filter(t=>t.id!==el.dataset.calendarTaskRemove);saveJSON('calendarTasks',state.calendarTasks);render();};
+    el.onclick=()=>{state.calendarTasks=(state.calendarTasks||[]).filter(t=>t.id!==el.dataset.calendarTaskRemove);saveJSON('calendarTasks',state.calendarTasks);refreshTaskViews();};
   });
   const addTaskBtn = document.getElementById('addTaskBtn');
   const newTaskInput = document.getElementById('newTask');
@@ -1157,7 +1168,7 @@ function bindEvents(){
       state.tasksDaily.extra.push({id:uid(), text:val, done:false});
       saveJSON('tasksDaily:'+dateKey, state.tasksDaily);
     }
-    render();
+    refreshTaskViews();
   }
   if(addTaskBtn) addTaskBtn.onclick = addTask;
   if(newTaskInput) newTaskInput.onkeydown = e=>{ if(e.key==='Enter') addTask(); };
@@ -1364,7 +1375,7 @@ function renderDayEditor(){
   const eventsHtml=events.length?`<div class="cal-editor-events"><b>أحداث هذا اليوم</b>${events.map(e=>`<div class="cal-editor-event">${e.icon} ${escapeHtml(e.label)}${e.done?' — مكتملة':''}</div>`).join('')}</div>`:'';
   holder.innerHTML=`<div class="cal-editor"><div class="hint">${AR_DOW[new Date(state.calYear,state.calMonth,d).getDay()]} ${d} ${AR_MONTHS[state.calMonth]}</div>${statsHtml}${eventsHtml}<div class="cal-add-task"><input id="calTaskText" placeholder="مهمة لهذا اليوم"><button class="btn small" id="calAddTaskBtn">+ إضافة مهمة</button></div><textarea id="calNoteText" placeholder="اكتبي ملاحظتك عن هذا اليوم...">${escapeHtml(note.note)}</textarea><div class="swatches">${Object.keys(CAL_COLORS).filter(c=>c!=='none').map(c=>`<div class="swatch ${state.editingColor===c?'selected':''}" data-color="${c}" style="background:${CAL_COLORS[c]}"></div>`).join('')}</div><div class="cal-editor-actions"><button class="btn small" id="calSaveBtn">حفظ</button><button class="btn small ghost" id="calDeleteBtn">حذف</button><button class="btn small ghost" id="calCloseBtn">إغلاق</button></div></div>`;
   document.querySelectorAll('[data-color]').forEach(el=>el.onclick=()=>{state.editingColor=el.dataset.color;renderDayEditor()});
-  document.getElementById('calAddTaskBtn').onclick=()=>{const input=document.getElementById('calTaskText'),val=input.value.trim();if(!val)return;state.calendarTasks=state.calendarTasks||[];state.calendarTasks.push({id:uid(),date:iso,text:val,done:false});saveJSON('calendarTasks',state.calendarTasks);renderCalendar()};
+  document.getElementById('calAddTaskBtn').onclick=()=>{const input=document.getElementById('calTaskText'),val=input.value.trim();if(!val)return;state.calendarTasks=state.calendarTasks||[];state.calendarTasks.push({id:uid(),date:iso,text:val,done:false});saveJSON('calendarTasks',state.calendarTasks);renderCalendar();refreshTaskViews()};
   document.getElementById('calSaveBtn').onclick=async()=>{const txt=document.getElementById('calNoteText').value;state.calNotes[d]={note:txt,color:state.editingColor};await saveJSON(monthKey(state.calYear,state.calMonth),state.calNotes);state.editingDay=null;renderCalendar()};
   document.getElementById('calDeleteBtn').onclick=async()=>{delete state.calNotes[d];await saveJSON(monthKey(state.calYear,state.calMonth),state.calNotes);state.editingDay=null;renderCalendar()};
   document.getElementById('calCloseBtn').onclick=()=>{state.editingDay=null;renderCalendar()};
